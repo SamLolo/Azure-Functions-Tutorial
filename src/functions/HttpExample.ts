@@ -1,15 +1,47 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { 
+    app, 
+    output,
+    HttpRequest, 
+    HttpResponseInit, 
+    InvocationContext, 
+    StorageQueueOutput 
+} from "@azure/functions";
 
-export async function HttpExample(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log(`Http function processed request for url "${request.url}"`);
 
-    const name = request.query.get('name') || await request.text() || 'world';
+const sendToQueue: StorageQueueOutput = output.storageQueue({
+    queueName: 'outqueue',
+    connection: 'AzureWebJobsStorage',
+  })
 
-    return { body: `Hello, ${name}!` };
+
+export async function HttpExample(
+    request: HttpRequest, 
+    context: InvocationContext
+): Promise<HttpResponseInit> {
+    try {
+        context.log(`Http function processed request for url "${request.url}"`);
+
+        const name = request.query.get('name') || (await request.text());
+        context.log(`Name: ${name}`);
+
+        if (name) {
+        const msg = `Name passed to the function ${name}`;
+        context.extraOutputs.set(sendToQueue, [msg]);
+        return { body: msg };
+        } else {
+        context.log('Missing required data');
+        return { status: 404, body: 'Missing required data' };
+        }
+    } catch (error) {
+        context.log(`Error: ${error}`);
+        return { status: 500, body: 'Internal Server Error' };
+    }
 };
+
 
 app.http('HttpExample', {
     methods: ['GET', 'POST'],
+    extraOutputs: [sendToQueue],
     authLevel: 'anonymous',
     handler: HttpExample
 });
