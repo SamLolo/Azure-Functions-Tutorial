@@ -14,23 +14,25 @@ const sendToQueue: StorageQueueOutput = output.storageQueue({
   })
 
 
-export async function HttpExample(
+export async function HelloWorld(
     request: HttpRequest, 
     context: InvocationContext
 ): Promise<HttpResponseInit> {
     try {
-        context.log(`Http function processed request for url "${request.url}"`);
+        context.log(`Hello function processed request for url "${request.url}"`);
 
-        const name = request.query.get('name') || (await request.text());
-        context.log(`Name: ${name}`);
+        const name = request.query.get('name');
+        if (!name) {
+            context.log(`Found name: ${name}`);
+        } else {
+            context.log(`No name found.`)
+        }
 
         if (name) {
-        const msg = `Name passed to the function ${name}`;
-        context.extraOutputs.set(sendToQueue, [msg]);
-        return { body: msg };
+            context.extraOutputs.set(sendToQueue, [`${name} said hello!`]);
+            return { status: 200, body: `Hello ${name}, nice to meet you!` };
         } else {
-        context.log('Missing required data');
-        return { status: 404, body: 'Missing required data' };
+            return { status: 200, body: `Hello! Did you know you can pass your name in as a parameter?` };
         }
     } catch (error) {
         context.log(`Error: ${error}`);
@@ -39,9 +41,9 @@ export async function HttpExample(
 };
 
 
-app.http('HttpExample', {
-    methods: ['GET', 'POST'],
+app.http('hello', {
+    methods: ['POST'],
     extraOutputs: [sendToQueue],
     authLevel: 'anonymous',
-    handler: HttpExample
+    handler: HelloWorld
 });
